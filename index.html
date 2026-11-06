@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Craftnite 3D - Caméra Souris</title>
+    <style>
+        body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        #gameContainer { position: relative; border: 3px solid #ffcc00; width: 800px; height: 500px; }
+        .ui { position: absolute; font-weight: bold; pointer-events: none; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 4px; font-size: 14px; text-shadow: 1px 1px #000; }
+        #stats { top: 10px; left: 10px; color: #00ffcc; }
+        #controls { bottom: 10px; left: 10px; color: #fff; }
+        #gameOver { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; display: none; z-index: 100; }
+        button { padding: 10px 20px; font-size: 18px; font-weight: bold; background: #ffcc00; border: none; cursor: pointer; margin-top: 15px; }
+    </style>
+    <script src="https://cloudflare.com"></script>
+</head>
+<body>
+
+    <div id="gameContainer">
+        <div id="stats" class="ui">HP: 100 | KILLS: 0 | ENNEMIS: 5</div>
+        <div id="controls" class="ui">🎮 SENSATIONS MINECRAFT : [Z,Q,S,D] pour bouger | Bouge la souris pour tourner la caméra 🎥 | [Clic] Tirer</div>
+        
+        <div id="gameOver">
+            <h2 id="endMsg" style="font-size: 36px; color: #ffcc00;">TOP 1 !</h2>
+            <button onclick="location.reload()">Rejouer</button>
+        </div>
+    </div>
+
+<script>
+    const container = document.getElementById('gameContainer');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x60a3bc);
+    scene.fog = new THREE.FogExp2(0x60a3bc, 0.015);
+
+    const camera = new THREE.PerspectiveCamera(60, 800 / 500, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(800, 500);
+    container.appendChild(renderer.domElement);
+
+    const light = new THREE.AmbientLight(0xffffff, 0.7); scene.add(light);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6); dirLight.position.set(10, 20, 15); scene.add(dirLight);
+
+    let player, enemies = [], bullets = [], blocks = [], stormMesh;
+    let stormRadius = 150, kills = 0, gameActive = true;
+    const keys = {};
+    
+    // Variables pour l'orientation à la souris
+    let playerAngle = 0;
+
+    const floorGeo = new THREE.PlaneGeometry(400, 400);
+    const floorMat = new THREE.MeshLambertMaterial({ color: 0x557a2b });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
+
+    const grid = new THREE.GridHelper(400, 80, 0x446622, 0x446622);
+    grid.position.y = 0.01;
+    scene.add(grid);
+
+    const boxGeo = new THREE.BoxGeometry(2, 2, 2);
+    const playerMat = new THREE.MeshLambertMaterial({ color: 0x2ecc71 });
+    player = new THREE.Mesh(boxGeo, playerMat);
+    player.position.set(0, 1, 0);
+    scene.add(player);
+
+    for(let i=0; i<40; i++) {
+        let block = new THREE.Mesh(boxGeo, new THREE.MeshLambertMaterial({ color: 0x7f8c8d }));
+        let rx = (Math.random() - 0.5) * 200;
+        let rz = (Math.random() - 0.5) * 200;
+        if (Math.hypot(rx, rz) > 20) {
+            block.position.set(Math.round(rx/4)*4, 1, Math.round(rz/4)*4);
+            scene.add(block);
+            blocks.push(block);
+        }
+    }
+
+    const enemyMat = new THREE.MeshLambertMaterial({ color: 0xe74c3c });
+    for(let i=0; i<5; i++) {
+        let en = new THREE.Mesh(boxGeo, enemyMat);
+        en.position.set((Math.random()-0.5)*150, 1, (Math.random()-0.5)*150);
+        en.vx = (Math.random() - 0.5) * 0.4;
+        en.vz = (Math.random() - 0.5) * 0.4;
+        en.hp = 100;
+        scene.add(en);
+        enemies.push(en);
+    }
+
+    const stormGeo = new THREE.CylinderGeometry(stormRadius, stormRadius, 40, 32, 1, true);
+    const stormMat = new THREE.MeshBasicMaterial({ color: 0x9b59b6, side: THREE.DoubleSide, transparent: true, opacity: 0.35 });
+    stormMesh = new THREE.Mesh(stormGeo, stormMat);
+    stormMesh.position.y = 15;
+    scene.add(stormMesh);
+
+    window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+    window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+    // Suivi de la souris pour tourner la caméra
+    container.addEventListener('mousemove', e => {
+        if (!gameActive) return;
+        const rect = container.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        
+        // Convertir la position X de la souris en un angle de rotation de 360 degrés
+        playerAngle = -((mouseX / rect.width) * Math.PI * 2) + Math.PI;
+        player.rotation.y = playerAngle;
+    });
+
+    container.addEventListener('mousedown', () => {
+        if (!gameActive) return;
+        const bulletGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        const bulletMat = new THREE.MeshBasicMaterial({ color: 0xf1c40f });
+        const b = new THREE.Mesh(bulletGeo, bulletMat);
+        b.position.set(player.position.x, player.position.y, player.position.z);
+        
+        // Le tir part exactement vers l'avant du joueur (où regarde la caméra)
+        b.vx = Math.sin(playerAngle) * 1.5;
+        b.vz = Math.cos(playerAngle) * 1.5;
+        b.fromPlayer = true;
+        scene.add(b);
+        bullets.push(b);
+    });
+
+    function updateUI() {
+        document.getElementById('stats').innerText = `HP: ${Math.round(player.hp || 100)} | KILLS: ${kills} | ENNEMIS: ${enemies.length}`;
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (!gameActive) return;
+
+        let moveX = 0, moveZ = 0;
+        
+        // Déplacements basés sur l'orientation de la caméra (Touches Minecraft)
+        if (keys['z'] || keys['w']) {
+            moveX += Math.sin(playerAngle) * 0.5;
+            moveZ += Math.cos(playerAngle) * 0.5;
+        }
+        if (keys['s']) {
+            moveX -= Math.sin(playerAngle) * 0.5;
+            moveZ -= Math.cos(playerAngle) * 0.5;
+        }
+        if (keys['q'] || keys['a']) {
+            moveX += Math.sin(playerAngle + Math.PI/2) * 0.4;
+            moveZ += Math.cos(playerAngle + Math.PI/2) * 0.4;
+        }
+        if (keys['d']) {
+            moveX -= Math.sin(playerAngle + Math.PI/2) * 0.4;
+            moveZ -= Math.cos(playerAngle + Math.PI/2) * 0.4;
+        }
+
+        player.position.x += moveX;
+        player.position.z += moveZ;
+
+        // La caméra se place derrière le joueur et regarde dans sa direction
+        const camDist = 18;
+        const camHeight = 12;
+        camera.position.set(
+            player.position.x - Math.sin(playerAngle) * camDist,
+            player.position.y + camHeight,
+            player.position.z - Math.cos(playerAngle) * camDist
+        );
+        camera.lookAt(new THREE.Vector3(player.position.x, player.position.y + 2, player.position.z));
+
+        if (stormRadius > 10) {
+            stormRadius -= 0.03;
+            stormMesh.scale.set(stormRadius / 150, 1, stormRadius / 150);
+        }
+
+        let distCenter = Math.hypot(player.position.x, player.position.z);
+        if (distCenter > stormRadius && Math.random() < 0.02) {
+            player.hp = (player.hp || 100) - 2;
+            updateUI();
+            if (player.hp <= 0) endGame(false);
+        }
+
+        for(let i = bullets.length - 1; i >= 0; i--) {
+            let b = bullets[i];
+            b.position.x += b.vx;
+            b.position.z += b.vz;
+
+            if(Math.abs(b.position.x) > 200 || Math.abs(b.position.z) > 200) {
+                scene.remove(b); bullets.splice(i, 1); continue;
+            }
+
+            if (b.fromPlayer) {
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    let e = enemies[j];
+                    if (b.position.distanceTo(e.position) < 2) {
+                        e.hp -= 40;
+                        scene.remove(b); bullets.splice(i, 1);
+                        if (e.hp <= 0) {
+                            scene.remove(e); enemies.splice(j, 1);
+                            kills++; updateUI();
+                            if(enemies.length === 0) endGame(true);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        enemies.forEach(e => {
+            e.position.x += e.vx;
+            e.position.z += e.vz;
+
+            if(Math.abs(e.position.x) > 180) e.vx *= -1;
+            if(Math.abs(e.position.z) > 180) e.vz *= -1;
+
+            if(Math.random() < 0.007) {
+                const bGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+                const bMat = new THREE.MeshBasicMaterial({ color: 0xe74c3c });
+                const b = new THREE.Mesh(bGeo, bMat);
+                b.position.set(e.position.x, e.position.y, e.position.z);
+                
+                let dir = new THREE.Vector3().subVectors(player.position, e.position).normalize();
+                b.vx = dir.x * 0.8;
+                b.vz = dir.z * 0.8;
+                b.fromPlayer = false;
+                scene.add(b);
+                bullets.push(b);
+            }
+
+            if (e.position.distanceTo(player.position) < 1.8) {
+                player.hp = (player.hp || 100) - 1;
+                updateUI();
+                if(player.hp <= 0) endGame(false);
+            }
+        });
+
+        renderer.render(scene, camera);
+    }
+
+    function endGame(win) {
+        gameActive = false;
+        document.getElementById('endMsg').innerText = win ? "🏆 TOP 1 !" : "💥 ÉLIMINÉ !";
+        document.getElementById('gameOver').style.display = 'flex';
+    }
+
+    updateUI();
+    animate();
+</script>
+</body>
+</html>
