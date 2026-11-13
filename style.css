@@ -1,0 +1,253 @@
+body {
+    background-color: #121212;
+    color: #ffffff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+}
+
+#header {
+    width: 800px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+h1 {
+    margin: 0;
+    font-size: 24px;
+    color: #e0a96d;
+}
+
+#timer {
+    font-size: 20px;
+    font-weight: bold;
+    background-color: #2b1d1d;
+    color: #ff6b6b;
+    padding: 5px 15px;
+    border: 2px solid #ff6b6b;
+    border-radius: 5px;
+}
+
+#game-container {
+    position: relative;
+    width: 800px;
+    height: 450px;
+    background-color: #2c2520;
+    border: 4px solid #5c4938;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    overflow: hidden;
+}
+
+.wall {
+    width: 100%;
+    height: 320px;
+    background: linear-gradient(to bottom, #3e342c, #2a221c);
+    border-bottom: 4px solid #1a1512;
+}
+
+.floor {
+    width: 100%;
+    height: 130px;
+    background-color: #1f1916;
+}
+
+.item {
+    position: absolute;
+    cursor: pointer;
+    transition: filter 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    user-select: none;
+}
+
+.item:hover {
+    filter: brightness(1.2);
+}
+
+#door {
+    width: 100px;
+    height: 210px;
+    background-color: #5c3a21;
+    border: 3px solid #3a2312;
+    bottom: 130px;
+    left: 40px;
+    color: #d4af37;
+}
+
+#painting {
+    width: 110px;
+    height: 85px;
+    background-color: #1e3f20;
+    border: 6px solid #d4af37;
+    top: 60px;
+    left: 200px;
+    color: #a3c9a8;
+    font-size: 13px;
+    text-align: center;
+    z-index: 2;
+}
+
+#safe {
+    width: 90px;
+    height: 90px;
+    background-color: #4a5568;
+    border: 4px solid #2d3748;
+    top: 62px;
+    left: 210px;
+    display: none;
+    color: #cbd5e0;
+    font-size: 12px;
+    flex-direction: column;
+    z-index: 1;
+}
+
+#bookshelf {
+    width: 130px;
+    height: 180px;
+    background-color: #4a2e1b;
+    border: 4px solid #2b1a0e;
+    bottom: 130px;
+    left: 410px;
+    color: #d6bcfa;
+    text-align: center;
+}
+
+#desk {
+    width: 160px;
+    height: 85px;
+    background-color: #6b4423;
+    border: 3px solid #422812;
+    bottom: 90px;
+    right: 40px;
+    color: #e2e8f0;
+}
+
+#plant {
+    width: 50px;
+    height: 80px;
+    bottom: 110px;
+    left: 340px;
+    font-size: 45px;
+}
+
+/* Style du personnage */
+#player {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    font-size: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    z-index: 5;
+    transition: transform 0.1s;
+}
+
+#ui-bar {
+    width: 800px;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    gap: 10px;
+}
+
+#message-box {
+    flex: 2;
+    background-color: #1e1e1e;
+    border: 2px solid #444;
+    padding: 15px;
+    min-height: 50px;
+    font-size: 15px;
+    line-height: 1.4;
+}
+
+#inventory {
+    flex: 1;
+    background-color: #1e1e1e;
+    border: 2px solid #444;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+#inventory-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+#inventory-items {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.inv-slot {
+    padding: 5px 10px;
+    background-color: #333;
+    border: 1px solid #666;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.inv-slot.selected {
+    border-color: #e0a96d;
+    background-color: #4a3b2c;
+}
+
+#modal {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+#modal-content {
+    background: #2d3748;
+    padding: 25px;
+    border-radius: 8px;
+    text-align: center;
+    border: 2px solid #a0aec0;
+}
+
+input[type="text"] {
+    padding: 8px;
+    font-size: 18px;
+    width: 100px;
+    text-align: center;
+    margin: 10px 0;
+    letter-spacing: 5px;
+}
+
+button {
+    padding: 8px 15px;
+    font-size: 14px;
+    cursor: pointer;
+    background: #e0a96d;
+    border: none;
+    font-weight: bold;
+    border-radius: 4px;
+}
+
+button:hover {
+    background: #c99155;
+}
+
+#btn-close {
+    background: #718096;
+    color: white;
+}
