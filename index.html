@@ -2,240 +2,51 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Craftnite 3D - Réparé</title>
-    <style>
-        body { margin: 0; background: #111; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        #gameContainer { position: relative; border: 3px solid #ffcc00; width: 800px; height: 500px; background: #000; }
-        .ui { position: absolute; font-weight: bold; pointer-events: none; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 4px; font-size: 14px; text-shadow: 1px 1px #000; }
-        #stats { top: 10px; left: 10px; color: #00ffcc; z-index: 10; }
-        #controls { bottom: 10px; left: 10px; color: #fff; z-index: 10; }
-        #gameOver { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; display: none; z-index: 100; }
-        button { padding: 10px 20px; font-size: 18px; font-weight: bold; background: #ffcc00; border: none; cursor: pointer; margin-top: 15px; }
-    </style>
-    <!-- Chargement sécurisé du moteur 3D -->
-    <script src="https://cloudflare.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escape Room 2D - Le Bureau Secret</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div id="gameContainer">
-        <div id="stats" class="ui">HP: 100 | KILLS: 0 | ENNEMIS: 5</div>
-        <div id="controls" class="ui">🎮 [Z,Q,S,D] pour bouger | Bouge la souris de gauche à droite pour tourner la caméra | [Clic] Tirer</div>
-        
-        <div id="gameOver">
-            <h2 id="endMsg" style="font-size: 36px; color: #ffcc00;">TOP 1 !</h2>
-            <button onclick="location.reload()">Rejouer</button>
+    <div id="header">
+        <h1>Escape Room : Le Bureau Secret</h1>
+        <div id="timer">Temps : 03:00</div>
+    </div>
+
+    <div id="game-container">
+        <div class="wall"></div>
+        <div class="floor"></div>
+
+        <!-- Objets interactifs -->
+        <div id="door" class="item">PORTE</div>
+        <div id="safe" class="item">COFFRE<br>[ 🔒 ]</div>
+        <div id="painting" class="item">Tableau<br>Ancien</div>
+        <div id="bookshelf" class="item">Bibliothèque</div>
+        <div id="plant" class="item">🪴</div>
+        <div id="desk" class="item">Bureau</div>
+
+        <!-- Personnage contrôlable -->
+        <div id="player">🕵️</div>
+
+        <!-- Fenêtre du code secret -->
+        <div id="modal">
+            <div id="modal-content">
+                <h3>Entrez le code à 4 chiffres</h3>
+                <input type="text" id="safe-code" maxlength="4" placeholder="0000"><br>
+                <button id="btn-validate">Valider</button>
+                <button id="btn-close">Fermer</button>
+            </div>
         </div>
     </div>
 
-<script>
-    const container = document.getElementById('gameContainer');
-    
-    // 1. Initialisation de la Scène 3D
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x60a3bc); // Ciel bleu
-    scene.fog = new THREE.FogExp2(0x60a3bc, 0.015);
+    <div id="ui-bar">
+        <div id="message-box">Déplacez-vous avec les flèches du clavier et appuyez sur <strong>Espace</strong> (ou cliquez) près d'un objet !</div>
+        <div id="inventory">
+            <div id="inventory-title">Inventaire (Cliquez pour équiper)</div>
+            <div id="inventory-items"></div>
+        </div>
+    </div>
 
-    // 2. Caméra et Rendu WebGL
-    const camera = new THREE.PerspectiveCamera(60, 800 / 500, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(800, 500);
-    container.appendChild(renderer.domElement);
-
-    // 3. Lumières
-    const light = new THREE.AmbientLight(0xffffff, 0.8); scene.add(light);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5); dirLight.position.set(20, 40, 20); scene.add(dirLight);
-
-    // Variables globales
-    let player, enemies = [], bullets = [], blocks = [], stormMesh;
-    let stormRadius = 150, kills = 0, gameActive = true, playerAngle = 0;
-    const keys = {};
-
-    // 4. Création du Sol vert
-    const floorGeo = new THREE.PlaneGeometry(400, 400);
-    const floorMat = new THREE.MeshLambertMaterial({ color: 0x557a2b });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
-
-    // Grille style Minecraft
-    const grid = new THREE.GridHelper(400, 80, 0x446622, 0x446622);
-    grid.position.y = 0.01;
-    scene.add(grid);
-
-    // 5. Création du Joueur (Cube Vert)
-    const boxGeo = new THREE.BoxGeometry(2, 2, 2);
-    const playerMat = new THREE.MeshLambertMaterial({ color: 0x2ecc71 });
-    player = new THREE.Mesh(boxGeo, playerMat);
-    player.position.set(0, 1, 0);
-    player.hp = 100;
-    scene.add(player);
-
-    // 6. Génération des obstacles (Roches grises) - Corrigé sans bug !
-    const rockMat = new THREE.MeshLambertMaterial({ color: 0x7f8c8d });
-    for(let i=0; i<30; i++) {
-        let block = new THREE.Mesh(boxGeo, rockMat);
-        let rx = (Math.random() - 0.5) * 160;
-        let rz = (Math.random() - 0.5) * 160;
-        if (Math.hypot(rx, rz) > 25) {
-            block.position.set(Math.round(rx/4)*4, 1, Math.round(rz/4)*4);
-            scene.add(block);
-            blocks.push(block);
-        }
-    }
-
-    // 7. Génération des Bots Ennemis (Cubes rouges)
-    const enemyMat = new THREE.MeshLambertMaterial({ color: 0xe74c3c });
-    for(let i=0; i<5; i++) {
-        let en = new THREE.Mesh(boxGeo, enemyMat);
-        en.position.set((Math.random()-0.5)*120, 1, (Math.random()-0.5)*120);
-        en.vx = (Math.random() - 0.5) * 0.3;
-        en.vz = (Math.random() - 0.5) * 0.3;
-        en.hp = 100;
-        scene.add(en);
-        enemies.push(en);
-    }
-
-    // 8. Dôme de la Tempête cylindrique (Violet)
-    const stormGeo = new THREE.CylinderGeometry(1, 1, 40, 32, 1, true);
-    const stormMat = new THREE.MeshBasicMaterial({ color: 0x9b59b6, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
-    stormMesh = new THREE.Mesh(stormGeo, stormMat);
-    stormMesh.position.set(0, 15, 0);
-    stormMesh.scale.set(stormRadius, 1, stormRadius);
-    scene.add(stormMesh);
-
-    // Événements Clavier
-    window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
-    window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-
-    // Contrôle Caméra à la Souris
-    container.addEventListener('mousemove', e => {
-        if (!gameActive) return;
-        const rect = container.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        playerAngle = -((mouseX / rect.width) * Math.PI * 2) + Math.PI;
-        player.rotation.y = playerAngle;
-    });
-
-    // Clic pour Tirer des Lasers
-    container.addEventListener('mousedown', () => {
-        if (!gameActive) return;
-        const bGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-        const bMat = new THREE.MeshBasicMaterial({ color: 0xf1c40f });
-        const b = new THREE.Mesh(bGeo, bMat);
-        b.position.set(player.position.x, player.position.y, player.position.z);
-        
-        b.vx = Math.sin(playerAngle) * 1.5;
-        b.vz = Math.cos(playerAngle) * 1.5;
-        b.fromPlayer = true;
-        scene.add(b);
-        bullets.push(b);
-    });
-
-    function updateUI() {
-        document.getElementById('stats').innerText = `HP: ${Math.round(player.hp)} | KILLS: ${kills} | ENNEMIS: ${enemies.length}`;
-    }
-
-    // Boucle de jeu fluide
-    function animate() {
-        requestAnimationFrame(animate);
-        if (!gameActive) return;
-
-        let moveX = 0, moveZ = 0;
-        
-        // Commandes Minecraft ZQSD basées sur l'angle de vue
-        if (keys['z'] || keys['w']) {
-            moveX += Math.sin(playerAngle) * 0.4;
-            moveZ += Math.cos(playerAngle) * 0.4;
-        }
-        if (keys['s']) {
-            moveX -= Math.sin(playerAngle) * 0.4;
-            moveZ -= Math.cos(playerAngle) * 0.4;
-        }
-        if (keys['q'] || keys['a']) {
-            moveX += Math.sin(playerAngle + Math.PI/2) * 0.3;
-            moveZ += Math.cos(playerAngle + Math.PI/2) * 0.3;
-        }
-        if (keys['d']) {
-            moveX -= Math.sin(playerAngle + Math.PI/2) * 0.3;
-            moveZ -= Math.cos(playerAngle + Math.PI/2) * 0.3;
-        }
-
-        player.position.x += moveX;
-        player.position.z += moveZ;
-
-        // Positionnement automatique de la caméra Minecraft (Troisième personne)
-        camera.position.set(
-            player.position.x - Math.sin(playerAngle) * 16,
-            player.position.y + 10,
-            player.position.z - Math.cos(playerAngle) * 16
-        );
-        camera.lookAt(new THREE.Vector3(player.position.x, player.position.y + 1, player.position.z));
-
-        // Gestion de la Zone de Tempête
-        if (stormRadius > 10) {
-            stormRadius -= 0.02;
-            stormMesh.scale.set(stormRadius, 1, stormRadius);
-        }
-
-        let dist = Math.hypot(player.position.x, player.position.z);
-        if (dist > stormRadius && Math.random() < 0.02) {
-            player.hp -= 2;
-            updateUI();
-            if (player.hp <= 0) endGame(false);
-        }
-
-        // Projectiles
-        for(let i = bullets.length - 1; i >= 0; i--) {
-            let b = bullets[i];
-            b.position.x += b.vx;
-            b.position.z += b.vz;
-
-            if(Math.abs(b.position.x) > 200 || Math.abs(b.position.z) > 200) {
-                scene.remove(b); bullets.splice(i, 1); continue;
-            }
-
-            if (b.fromPlayer) {
-                for (let j = enemies.length - 1; j >= 0; j--) {
-                    let e = enemies[j];
-                    if (b.position.distanceTo(e.position) < 1.8) {
-                        e.hp -= 34;
-                        scene.remove(b); bullets.splice(i, 1);
-                        if (e.hp <= 0) {
-                            scene.remove(e); enemies.splice(j, 1);
-                            kills++; updateUI();
-                            if(enemies.length === 0) endGame(true);
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-
-        // IA des Bots
-        enemies.forEach(e => {
-            e.position.x += e.vx;
-            e.position.z += e.vz;
-
-            if(Math.abs(e.position.x) > 180) e.vx *= -1;
-            if(Math.abs(e.position.z) > 180) e.vz *= -1;
-
-            if (e.position.distanceTo(player.position) < 2) {
-                player.hp -= 0.5;
-                updateUI();
-                if(player.hp <= 0) endGame(false);
-            }
-        });
-
-        renderer.render(scene, camera);
-    }
-
-    function endGame(win) {
-        gameActive = false;
-        document.getElementById('endMsg').innerText = win ? "🏆 TOP 1 !" : "💥 ÉLIMINÉ !";
-        document.getElementById('gameOver').style.display = 'flex';
-    }
-
-    animate();
-</script>
+    <script src="script.js"></script>
 </body>
 </html>
